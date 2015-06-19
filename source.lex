@@ -18,7 +18,7 @@
 whitespace	([ \t\n\r])
 everyThing (.)
 %%
-
+ 
 foreach					{print4Debug("FOREACH");return FOREACH;}
 in						{print4Debug("IN");return IN;}
 int						{print4Debug("TYPE_INT");return TYPE_INT;}

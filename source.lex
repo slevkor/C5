@@ -27,10 +27,14 @@ print					{print4Debug("PRINT");return PRINT;}
 read					{print4Debug("READ");return READ;}
 if                      {print4Debug("IF");return IF;}
 else                    {print4Debug("ELSE");return ELSE;}
-true                    {print4Debug("TRUE");yylval.value = yytext; yylval.type = "BOOL";return TRUE;}
-false                   {print4Debug("FALSE");yylval.value = yytext; yylval.type = "BOOL";return FALSE;}
-0|[1-9][0-9]*           {print4Debug("NUM");yylval.value = yytext; yylval.type = "INT";return NUM;}
-\"[^"]*\" 				{print4Debug("STRING");yylval.value = yytext; yylval.type = "STRING";return STRING;}
+true                    {print4Debug("TRUE");yylval.value = yytext; 
+							yylval.type = "BOOL";return TRUE;}
+false                   {print4Debug("FALSE");yylval.value = yytext; 
+							yylval.type = "BOOL";return FALSE;}
+0|[1-9][0-9]*           {print4Debug("NUM");yylval.value = yytext; 
+							yylval.type = "INT";return NUM;}
+\"[^"]*\" 				{print4Debug("STRING");yylval.value = yytext; 
+							yylval.type = "STRING";return STRING;}
 [a-zA-Z]+			    {print4Debug("ID");yylval.value = yytext; 
 							yylval.name = yytext; 
 							yylval.type = "STRING";return ID;}

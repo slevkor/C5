@@ -12,13 +12,15 @@ public:
 
 	Matrix(string matrix_str);
 
-	void is_legal(string matrix);
+	bool is_legal();
 	int rows_number();
 	int cols_number();
-	int* plus_matrixes(string matrix1, string matrix2);
-	int* minus_matrixes(string matrix1, string matrix2);
-	int* mult_matrixes(string matrix1, string matrix2);
-	void change_value(string matrix1, int i, int j, int value);
+	string plus_matrixes(string matrix2);
+	string minus_matrixes(string matrix2);
+	string mult_matrixes(string matrix2);
+	string mult_matrix_int(int x);
+	void change_value(int i, int j, int value);
+	string get_value(int i, int j);
 };
 
 #endif /* MATRIX_PROJECT_CPP_ */

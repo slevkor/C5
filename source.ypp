@@ -6,6 +6,7 @@
 	#include <string>
 	#include "source.hpp"
 	#include "symbol_table.hpp"
+	#include "matrix_project.hpp"
 	#include "hw5.hpp"
     
 	using namespace std;
@@ -15,12 +16,14 @@
     void yyerror(const char*);
 	bool is_number(const std::string& s);
 	void printValue(yystype y);
+	void print2see(string s);
 	extern FILE* yyin;
 	int yyparse();
 	int str2int(string Text);
 	string int2str(int Number);
 	string reomve_quotes(string s);
 	extern symbol_table s_table;
+	int yppdebuger = 1;
 %}
 
 %token PRINT READ IF TRUE FALSE NUM STRING ID SC LP LC RC LB RB FOREACH TYPE_INT TYPE_MATRIX IN WHILE
@@ -44,8 +47,11 @@
 
 
 %%
-Prog: 
-		Stmt
+Prog: Stmts
+;
+M : 	{
+		s_table.insert_scope();
+		}
 ;
 Stmts: 	
 		Stmts Stmt
@@ -56,7 +62,7 @@ Stmt:
 	|	Stmt_D
 ;
 Stmt_D:	
-		Type_More SC
+		Type_Init SC
 	|	Lvalue ASSIGN Exp SC {
 			if ($1.type!=$3.type){
 				errSem();
@@ -64,11 +70,13 @@ Stmt_D:
 			s_table.set_type_and_value_of_element($1.name,$3.type,$3.value);
 		}
 	|	PRINT OutputSpecifier SC {
-			if ($1.type=="STRING"){
-				cout << reomve_quotes($1.value) << endl;
+			print2see("im in PRINT");
+			printValue($2);
+			if ($2.type=="STRING"){
+				cout << reomve_quotes($2.value) << endl;
 			}
 			else{
-				cout << $1.value << endl;
+				cout << $2.value << endl;
 			}
 		}
 	|	READ ID SC {
@@ -84,47 +92,53 @@ Stmt_D:
 				cin >> in;
 				s_table.set_type_and_value_of_element($2.name,type,in);
 			}
-			if (type=="MATRIX"){
+			else if (type=="MATRIX"){
 				string oldMatrix = s_table.get_value_of_element($2.name);
-				/*int rows = count_rows(oldMatrix);
-				int cols = count_cols(oldMatrix);
+				Matrix m1(oldMatrix);
+				int rows = m1.rows_number();
+				int cols = m1.cols_number();
 				int temp = 0;
 				int tempCols = 1;
 				string newMatrix = "[";
 				string in;
 				while (temp!=(cols*rows)){
 					cin >> in;
+					if (!is_number(in)){
+						errSem();
+					}
 					newMatrix+=in;
+					if (temp==((cols*rows)-1)){
+						newMatrix+="]";
+						break;
+					}
 					if (tempCols<cols){
 						newMatrix+=",";
 						tempCols++;
 					}
 					else {
-						newMatrix+=";"
+						newMatrix+=";";
 						tempCols=1;
 					}
-					temp++
+					temp++;
 				}
-				set_type_and_value_of_element($2.name,type,newMatrix);*/
+				s_table.set_type_and_value_of_element($2.name,type,newMatrix);
 			}		
 		}
-	|	LC Stmts RC
-;
-Type_More: 
-		Type_Init
-	|	Type_Init CS Type_More
+	|	LC M Stmts RC {
+		s_table.delete_scope();
+	}
 ;
 Type_Init : 
-		TYPE_INT Init {
-			if ($2.type=="INT"){
-					errSem();
-				}
-			}
-	|	TYPE_MATRIX Init {
-				if ($2.type=="MATRIX"){
-					errSem();
-				}
-			}
+		TYPE_INT Type_More_INT
+	|	TYPE_MATRIX Type_More_MATRIX 
+;
+Type_More_INT: 
+		Init_INT
+	|	Init_INT CS Type_More_INT
+;
+Type_More_MATRIX: 
+		Init_MATRIX
+	|	Init_MATRIX CS Type_More_MATRIX
 ;
 Stmt_ND: 
 		IF LP Bool RP Stmt {
@@ -136,42 +150,55 @@ Stmt_ND:
 ;
 Exp: 	
 		Exp PLUS Exp {
-			//semantic checks
 			if ($1.type != $3.type){
 					errSem();
 				}
-			if (($1.type!="INT" && $1.type!="MATRIX") || 
-				($3.type!="INT" && $3.type!="MATRIX")){
+			if ($1.type=="MATRIX" && $3.type=="MATRIX"){
+				$$.type = $1.type;
+				Matrix m1($1.value);
+				Matrix m2($3.value);
+				if (!m1.is_legal() || !m2.is_legal()) {
 					errSem();
 				}
-			// -------------
-			$$.type = $1.type;
-			if ($1.type=="MATRIX" && $3.type=="MATRIX"){
-				//TODO check dimensions of the matrices
-				//TODO matrix1+matrix2
+				if (m1.rows_number()!=m2.rows_number() ||
+					m1.cols_number()!=m2.cols_number()){
+					errSem();
 				}
-			if ($1.type=="INT" && $3.type=="INT"){
+				$$.value = m1.plus_matrixes($3.value);
+				}
+			else if ($1.type=="INT" && $3.type=="INT"){
+				$$.type = $1.type;
 				$$.value = int2str(str2int($1.value) + str2int($3.value));
 				}
+			else {
+				errSem();
+			}
 		}
 	|	Exp MINUS Exp {
 			//semantic checks
 			if ($1.type != $3.type){
 					errSem();
 				}
-			if (($1.type!="INT" && $1.type!="MATRIX") || 
-				($3.type!="INT" && $3.type!="MATRIX")){
+			if ($1.type=="MATRIX" && $3.type=="MATRIX"){
+				$$.type = $1.type;
+				Matrix m1($1.value);
+				Matrix m2($3.value);
+				if (!m1.is_legal() || !m2.is_legal()) {
 					errSem();
 				}
-			// -------------
-			$$.type = $1.type;
-			if ($1.type=="MATRIX" && $3.type=="MATRIX"){
-				//TODO check dimensions of the matrices
-				//TODO matrix1-matrix2
+				if (m1.rows_number()!=m2.rows_number() ||
+					m1.cols_number()!=m2.cols_number()){
+					errSem();
 				}
-			if ($1.type=="INT" && $3.type=="INT"){
+				$$.value = m1.minus_matrixes($3.value);
+				}
+			else if ($1.type=="INT" && $3.type=="INT"){
+				$$.type = $1.type;
 				$$.value = int2str(str2int($1.value) - str2int($3.value));
 				}
+			else {
+				errSem();
+			}
 		}
 	|	Exp DIV Exp {
 			//semantic checks
@@ -186,32 +213,38 @@ Exp:
 			$$.value = int2str(str2int($1.value) / str2int($3.value));
 		}
 	|	Exp MULT Exp {
-			//semantic checks
-			if (($1.type!="INT" && $1.type!="MATRIX") || 
-				($3.type!="INT" && $3.type!="MATRIX")){
+			if ($1.type=="MATRIX" && $3.type=="MATRIX"){
+				Matrix m1($1.value);
+				Matrix m2($3.value);
+				if (!m1.is_legal() || !m2.is_legal()) {
 					errSem();
 				}
-			// -------------
-			if ($1.type=="MATRIX" && $3.type=="MATRIX"){
-				//TODO check dimensions of the matrices (multiplication..)
-				//TODO matrix1*matrix2
+				if (m1.cols_number()!=m2.rows_number()){
+					errSem();
+				}
+				$$.value = m1.mult_matrixes($3.value);
 				$$.type="MATRIX";
 				}
-			if ($1.type=="INT" && $3.type=="INT"){
+			else if ($1.type=="INT" && $3.type=="INT"){
 				$$.value = int2str(str2int($1.value) * str2int($3.value));
 				$$.type="INT";
 				}
-			if ($1.type=="INT" && $3.type=="MATRIX"){
-				//TODO int*matrix
+			else if ($1.type=="INT" && $3.type=="MATRIX"){
+				Matrix m1($3.value);
+				$$.value = m1.mult_matrix_int(str2int($1.value));
 				$$.type="MATRIX";
 				}
-			if	($1.type=="MATRIX" && $3.type=="INT") {
-				//TODO matrix*int
+			else if	($1.type=="MATRIX" && $3.type=="INT") {
+				Matrix m1($1.value);
+				$$.value = m1.mult_matrix_int(str2int($3.value));
 				$$.type="MATRIX";
 				}
+			else {
+				errSem();
+			}
 		}
 	|	Matrix {
-			//TODO matrix to string..
+			$$.value = $1.value ;
 			$$.type="MATRIX";
 		}
 	|	Exp_NUM {
@@ -222,6 +255,9 @@ Exp:
 			$$.type="INT";
 		}
 	|	ID {	
+			if (!s_table.is_element_in_table($1.name)){
+				errSem();
+			}
 			$$.value=$1.value;
 			$$.type=$1.type;
 		}
@@ -230,72 +266,159 @@ Exp:
 				|| $5.type!="INT"){
 					errSem();
 				}
+			if (!s_table.is_element_in_table($1.name)){
+				errSem();
+			}
 			int row = str2int($3.value);
 			int col = str2int($5.value);
-			//check matrix dimensions
-			//check row and col are ok
-			
-		$$.type="INT";
+			if (row<0 || col<0){
+				errSem();
+			}
+			Matrix m1($1.value);
+			if (row>m1.rows_number() || col>m1.cols_number()){
+				errSem();
+			}	
+			$$.value = m1.get_value(row,col);
+			$$.type="INT";
 		}
 	|	LP Exp RP {
 			$$.value=$2.value;
 			$$.type=$2.type;
 		}
 ;
-Exp_NUM: NUM {
-		if ($1.type!="INT"){
-			errSem();
+Exp_NUM: 
+		NUM {
+			$$.value=$1.value;
+			$$.type="INT";
+		}/*
+	|	NUM PLUS NUM {
+			$$.type = $1.type;
+			$$.value = int2str(str2int($1.value) = str2int($3.value));
 		}
-		$$.value=$1.value;
-		$$.type="INT";
-	}
+	|	NUM MINUS NUM {
+			$$.type = $1.type;
+			$$.value = int2str(str2int($1.value) - str2int($3.value));
+		}
+	|	NUM DIV	NUM {
+			$$.type = $1.type;
+			$$.value = int2str(str2int($1.value) / str2int($3.value));
+		}
+	|	NUM MULT NUM {
+			$$.type = $1.type;
+			$$.value = int2str(str2int($1.value) * str2int($3.value));
+		}*/
 ;
 Matrix: 
-		LB Matrix_Row Matrix_Col RB 
+		LB Matrix_Row_Col RB {
+			$$.type = "MATRIX";
+			string str = "[";
+			str+=$2.value;
+			str+="]";
+			$$.value=str;
+		}
 ;
-Matrix_Col:  
-	|	SC Matrix_Row
+Matrix_Row_Col:  
+		Matrix_Row {
+			$$.value = $1.value;
+		}
+	|	Matrix_Row SC Matrix_Row_Col {
+			string str =$1.value;
+			str+=";";
+			str+=$3.value;
+			$$.value=str;
+		}
 ;
 Matrix_Row: 
 		Exp {
 			if ($1.type != "INT"){
+				print2see("out in Matrix_Row");
 				errSem();
 			}
+			$$.value=$1.value;
 		}
 	|	Exp CS Matrix_Row {
 			if ($1.type != "INT"){
+				print2see("out in Matrix_Row 2");
 				errSem();
 			}
+			string str = $1.value;
+			str+=",";
+			str+=$3.value;
+			$$.value = str;
 		}
 ;
-Init: 	
+Init_INT: 	
 		ID {
-			$1.value="0";
-			$1.type="INT";
-			//add to table or change;
-		}
-	|	ID ASSIGN Exp {
-			if ($1.type != "INT"){
+			if (s_table.is_element_in_table($1.name)){
 				errSem();
 			}
-			$1.value=$3.value;
-			$1.type="INT";
-			//add to table or change...;
+			s_table.insert_element($1.name,"INT","0");
 		}
-	|	ID LP Exp_NUM CS Exp_NUM RP {
+	|	ID ASSIGN Exp {
+			if ($3.type != "INT"){
+				errSem();
+			}
+			if (s_table.is_element_in_table($1.name)){
+				errSem();
+			}
+			s_table.insert_element($1.name,"INT",$3.value);
+		}
+;
+Init_MATRIX:	
+		ID LP Exp_NUM CS Exp_NUM RP {
+			print2see("im in Init_MATRIX");
 			if ($3.type != "INT" || $5.type != "INT"){
 				errSem();
 			}
-			//initialize a matrix of zeros 
-			//str2int($3.value) on $5.value matrix
-			$1.type="MATRIX";
-		}
-	|	ID LP Exp_NUM CS Exp_NUM RP ASSIGN Exp {
-			if ($8.type!="MATRIX"){
+			if (s_table.is_element_in_table($1.name)){
 				errSem();
 			}
-			//initialize matrix
-			//str2int($3.value) on $5.value matrix with Exp..
+			int rows = str2int($3.value);
+			int cols = str2int($5.value);
+			print2see($3.value);
+			print2see($5.value);
+			if (cols<0 || rows<0) {
+				errSem();
+			}
+			string matrix="[";
+			string rowString = "";
+			for (int i=0; i<rows;i++) {
+				rowString+="0,";
+			}
+			rowString.erase(rowString.length()-1,1);
+			for (int i=0;i<cols;i++) {
+				matrix+=rowString;
+				matrix+=";";
+			}
+			matrix.erase(matrix.length()-1,1);
+			matrix+="]";
+			s_table.insert_element($1.name,"MATRIX",matrix);
+		}
+	|	ID LP Exp_NUM CS Exp_NUM RP ASSIGN Exp {
+			if ($3.type != "INT" || $5.type != "INT" || $8.type!="MATRIX"){
+				print2see("im out in ID LP Exp_NUM CS Exp_NUM RP ASSIGN Exp1");
+				errSem();
+			}
+			if (s_table.is_element_in_table($1.name)){
+				print2see("im out in ID LP Exp_NUM CS Exp_NUM RP ASSIGN Exp2");
+				errSem();
+			}
+			Matrix m1($8.value);
+			if (!m1.is_legal()){
+				printValue($8);
+				print2see("im out in ID LP Exp_NUM CS Exp_NUM RP ASSIGN Exp3");
+				errSem();
+			}
+			int rows = str2int($3.value);
+			int cols = str2int($5.value);
+			if (m1.rows_number()!=rows || m1.cols_number()!=cols){
+				printValue($3);
+				printValue($5);
+				printValue($8);
+				print2see("im out in ID LP Exp_NUM CS Exp_NUM RP ASSIGN Exp4");
+				errSem();
+			}
+			s_table.insert_element($1.name,"MATRIX",$8.value);
 		}
 ;
 Lvalue: 
@@ -315,10 +438,19 @@ Lvalue:
 			if (!s_table.is_element_in_table($1.name)){
 				errSem();
 			}
+			string type = s_table.get_type_of_element($1.name);
+			if (type!="MATRIX"){
+				errSem();
+			}
 			string matrix = s_table.get_value_of_element($1.name);
-			int row = str2int($3.value);
-			int col = str2int($5.value);
-			//check that row and col are ok with matrix's size
+			Matrix m1(matrix);
+			int rows = str2int($3.value);
+			int cols = str2int($5.value);
+			if (m1.rows_number()!=rows || m1.cols_number()!=cols){
+				errSem();
+			}
+			$$.name = $1.name;
+			$$.type = type;
 		}
 ;
 Bool: 	
@@ -340,8 +472,8 @@ OutputSpecifier:
 			if (!s_table.is_element_in_table($1.name)){
 				errSem();
 			}
-			$$.type = $1.type;
-			$$.value = $1.value;
+			$$.type = s_table.get_type_of_element($1.name);
+			$$.value = s_table.get_value_of_element($1.name);
 		}
 	|	STRING {
 			$$.type = $1.type;
@@ -353,8 +485,14 @@ OutputSpecifier:
 symbol_table s_table = symbol_table();
 
 void printValue(yystype y){
-    cout <<y.name<<'|'<<y.type<<'|'<<y.value <<endl;
-    return;
+	if (yppdebuger==1){
+		cout <<y.name<<'#'<<y.type<<'#'<<y.value <<endl;
+    }
+}
+void print2see(string s){
+	if (yppdebuger==1){
+		cout << s << endl;
+	}
 }
 
 string reomve_quotes(string s){

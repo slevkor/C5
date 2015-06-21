@@ -133,12 +133,13 @@ string Matrix::mult_matrix_int(int x) {
 }
 
 void Matrix::change_value(int i, int j, int value) {
-	*(matrix + ((i - 1) * colsNum) + j - 1) = value;
+	*(matrix + ((i) * colsNum) + j) = value;
+	matrix_str = matrix_to_string(matrix, rowsNum,colsNum);
 }
 
 string Matrix::get_value(int i, int j) {
 	ostringstream stream;
-	stream << *(matrix + ((i - 1) * colsNum) + j - 1);
+	stream << *(matrix + ((i) * colsNum) + j);
 	return stream.str();
 }
 
